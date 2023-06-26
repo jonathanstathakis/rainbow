@@ -4,64 +4,22 @@
 from mydevtools import project_settings, function_timer as ft
 from mydevtools.testing import mytestmethods
 from lxml import etree
+import rainbow as rb
+from rainbow.agilent.chemstation import extract_sequence_metadata
 
 
 def jonathan_dev_tests_main(filepath: str):
-    tests = [(test_extract_sequence_metadata, filepath, xpath_dict)]
+    xpath_dict = {
+        "Name": "/SampleContextParams/IdentParam/Name",
+        "VialNumber": "/SampleParams/AcqParam/VialNumber",
+        "OriginalFilePath": "/Injections/MeasData/BinaryData/DirItem/OriginalFilePath",
+    }
+    tests = [
+        (test_extract_sequence_metadata, filepath, xpath_dict),
+        (test_chemstation,),
+    ]
     mytestmethods.test_report(tests)
     return None
-
-
-def xpath_factory(rel_path: str):
-    namespace_inj = "/acaml:"
-    path_root = "./"
-    common_path = "/Doc/Content"
-    path = common_path + rel_path
-    path = path.replace("/", namespace_inj)
-    xpath_exp = path_root + path
-
-    return xpath_exp
-
-
-xpath_dict = {
-    "Name": "/SampleContextParams/IdentParam/Name",
-    "VialNumber": "/SampleParams/AcqParam/VialNumber",
-    "OriginalFilePath": "/Injections/MeasData/BinaryData/DirItem/OriginalFilePath",
-}
-
-
-def extract_sequence_metadata(filepath: str, xpath_dict: dict):
-    """
-    For a given .xml file "filepath" and dictionary of relative xpaths starting from
-    "/Doc/Content", return a dictonary of extracted metadata.
-    """
-    print("")
-    seq_metadata = {
-        key: None for key in xpath_dict.keys()
-    }  # setup the results container
-
-    tree = etree.parse(filepath)  # create the etree object
-    root = tree.getroot()
-
-    namespace = root.tag.split("}")[0].strip(
-        "{"
-    )  # get the namespace for the file from the root tag
-    ns = {"acaml": namespace}
-
-    for description, rel_path in xpath_dict.items():
-        try:
-            # construct xpaths using the defined namespace
-            xpath_exp = xpath_factory(rel_path)
-            # get the result of the xpath exp as a list
-            result = root.xpath(xpath_exp, namespaces=ns)
-            # extract the item text from results list
-            string_list = [item.text for item in result]
-            # assign the results string list to return dict
-            seq_metadata[description] = string_list
-        except Exception as e:
-            print(e)
-
-    return seq_metadata
 
 
 def test_extract_sequence_metadata(filepath, xpath_dict):
@@ -69,10 +27,17 @@ def test_extract_sequence_metadata(filepath, xpath_dict):
     assert seq_metadata_dict
     assert seq_metadata_dict.keys() == xpath_dict.keys()
 
-    print(seq_metadata_dict)
+    # print(seq_metadata_dict)
 
-    # for description, metadata in seq_metadata_dict.items():
-    #     assert metadata, f"{description}"
+    for description, metadata in seq_metadata_dict.items():
+        assert metadata, f"{description}"
+
+
+def test_chemstation():
+    filepath = "/Users/jonathan/0_jono_data/cuprac/116.D"
+    uv_file = rb.read(filepath).get_file("DAD1.UV")
+    assert uv_file
+    assert "OriginalFilePath" in uv_file.metadata.keys()
 
 
 def main():
