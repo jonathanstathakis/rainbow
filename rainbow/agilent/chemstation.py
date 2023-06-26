@@ -722,16 +722,18 @@ def parse_metadata(path, datafiles):
 
     # sequence.acam_
     if "sequence.acam_" in dircontents:
-        seq_metadata = extract_sequence_metadata(os.path.join(path, "sequence.acam_"))
+        path = os.path.join(path, "sequence.acam_")
+        seq_metadata = extract_sequence_metadata(filepath=path, xpath_dict=xpath_dict)
         if seq_metadata:
-            metadata.extend(seq_metadata)
+            metadata = {**metadata, **seq_metadata}
             return metadata
 
     # sample.acaml
     if "sample.acaml" in dircontents:
-        vialnum = extract_sequence_metadata(os.path.join(path, "sample.acaml"))
+        path = os.path.join(path, "sequence.acaml")
+        seq_metadata = extract_sequence_metadata(filepath=path, xpath_dict=xpath_dict)
         if seq_metadata:
-            metadata.extend(seq_metadata)
+            metadata = {**metadata, **seq_metadata}
             return metadata
 
     # AcqData/sample_info.xml
