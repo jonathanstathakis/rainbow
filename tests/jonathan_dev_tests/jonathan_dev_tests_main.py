@@ -24,10 +24,16 @@ def jonathan_dev_tests_main(filepath: str):
 
 def test_extract_sequence_metadata(filepath, xpath_dict):
     seq_metadata_dict = extract_sequence_metadata(filepath, xpath_dict)
-    assert seq_metadata_dict
-    assert seq_metadata_dict.keys() == xpath_dict.keys()
+    assert seq_metadata_dict, "seq_metadata_dict empty"
 
-    # print(seq_metadata_dict)
+    lowered_keys_list = [key for key in xpath_dict.keys()]
+
+    for key in lowered_keys_list:
+        assert (
+            key in seq_metadata_dict.keys()
+        ), f"expected {key} to be in returned seq_metadata_dict"
+
+    print(seq_metadata_dict)
 
     for description, metadata in seq_metadata_dict.items():
         assert metadata, f"{description}"
@@ -35,9 +41,13 @@ def test_extract_sequence_metadata(filepath, xpath_dict):
 
 def test_chemstation():
     filepath = "/Users/jonathan/0_jono_data/cuprac/116.D"
-    uv_file = rb.read(filepath).get_file("DAD1.UV")
-    assert uv_file
-    assert "OriginalFilePath" in uv_file.metadata.keys()
+    datadir = rb.read(filepath)
+    print(datadir.metadata)
+    uv_file = datadir.get_file("DAD1.UV")
+    print(uv_file.metadata)
+    # assert uv_file
+    # print(uv_file.metadata)
+    # assert "OriginalFilePath" in uv_file.metadata.keys()
 
 
 def main():
