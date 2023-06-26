@@ -1,6 +1,7 @@
 """
 
 """
+from re import L
 from mydevtools import project_settings, function_timer as ft
 from mydevtools.testing import mytestmethods
 from lxml import etree
@@ -28,15 +29,23 @@ def testing_etree(filepath: str):
         print(item.tag, item.attrib)
 
 
+def xpath_factory(rel_path: str):
+    namespace_inj = "/acaml:"
+    path_root = "./"
+    common_path = "/Doc/Content"
+    path = common_path + rel_path
+    xpath_exp = path_root + path.replace("/", namespace_inj)
+    return xpath_exp
+
+
 def testing_etree(filepath: str):
     # in the ElementTree API, Element class is the main container object created here:
     print("")
     tree = etree.parse(filepath)
     root = tree.getroot()
-
     ns = {"acaml": "urn:schemas-agilent-com:acaml15"}
-    # xpath_exp = "./ACAML/Doc/Content/SampleContextParams/IdentParam/Name"
-    xpath_exp = ".//acaml:Doc/acaml:Content/acaml:SampleContextParams/acaml:IdentParam/acaml:Name"
+    name_path = "/SampleContextParams/IdentParam/Name"
+    xpath_exp = xpath_factory(name_path)
     result = root.xpath(xpath_exp, namespaces=ns)
     print("xpath length is:", len(result))
     for item in result:
