@@ -43,14 +43,20 @@ def extract_sequence_metadata(filepath: str, xpath_dict: dict):
     tree = etree.parse(filepath)  # create the etree object
     root = tree.getroot()
 
-    namespace = root.tag.split("}")[0].strip("{")
+    namespace = root.tag.split("}")[0].strip(
+        "{"
+    )  # get the namespace for the file from the root tag
     ns = {"acaml": namespace}
 
     for description, rel_path in xpath_dict.items():
         try:
+            # construct xpaths using the defined namespace
             xpath_exp = xpath_factory(rel_path)
+            # get the result of the xpath exp as a list
             result = root.xpath(xpath_exp, namespaces=ns)
+            # extract the item text from results list
             string_list = [item.text for item in result]
+            # assign the results string list to return dict
             seq_metadata[description] = string_list
         except Exception as e:
             print(e)
