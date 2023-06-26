@@ -800,9 +800,9 @@ def xpath_factory(rel_path: str):
 
 
 xpath_dict = {
-    "Name": "/SampleContextParams/IdentParam/Name",
-    "VialNumber": "/SampleParams/AcqParam/VialNumber",
-    "OriginalFilePath": "/Injections/MeasData/BinaryData/DirItem/OriginalFilePath",
+    "seq_name": "/SampleContextParams/IdentParam/Name",
+    "vialnum": "/SampleParams/AcqParam/VialNumber",
+    "originalfilepath": "/Injections/MeasData/BinaryData/DirItem/OriginalFilePath",
 }
 
 
@@ -831,9 +831,16 @@ def extract_sequence_metadata(filepath: str, xpath_dict: dict):
             # get the result of the xpath exp as a list
             result = root.xpath(xpath_exp, namespaces=ns)
             # extract the item text from results list
-            string_list = [item.text for item in result]
-            # assign the results string list to return dict
-            seq_metadata[description] = string_list
+            # each item is <class 'lxml.etree._Element'>
+            # ideally metadata is a flat dict, so if a result contains multiple items, assign them with incrementing keys
+            if len(result) < 2:
+                seq_metadata[description] = result[0].text
+            else:
+                for idx, item in enumerate(result):
+                    # remove original unindexed key
+                    seq_metadata.pop(description)
+                    description_idx = description + "_" + idx
+                    seq_metadata[description_idx] = item.text
         except Exception as e:
             print(e)
 
