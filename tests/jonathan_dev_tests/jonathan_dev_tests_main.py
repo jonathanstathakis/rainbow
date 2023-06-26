@@ -1,7 +1,6 @@
 """
 
 """
-from re import L
 from mydevtools import project_settings, function_timer as ft
 from mydevtools.testing import mytestmethods
 from lxml import etree
@@ -13,29 +12,22 @@ def jonathan_dev_tests_main(filepath: str):
     return None
 
 
-def testing_etree(filepath: str):
-    # Parse the XML file and get the root element
-    tree = etree.parse(filepath)
-    root = tree.getroot()
-
-    print(f"Root tag: {root.tag}")  # print the root tag
-
-    ns = {"acaml": "urn:schemas-agilent-com:acaml14"}
-    xpath_exp = ".//acaml:Doc/acaml:Content/acaml:SampleContextParams/acaml:IdentParam/acaml:Name"
-    result = root.xpath(xpath_exp, namespaces=ns)
-
-    print("xpath length is:", len(result))
-    for item in result:
-        print(item.tag, item.attrib)
-
-
 def xpath_factory(rel_path: str):
     namespace_inj = "/acaml:"
     path_root = "./"
     common_path = "/Doc/Content"
     path = common_path + rel_path
-    xpath_exp = path_root + path.replace("/", namespace_inj)
+    path = path.replace("/", namespace_inj)
+    xpath_exp = path_root + path
+
     return xpath_exp
+
+
+xpath_dict = {
+    "Name": "/SampleContextParams/IdentParam/Name",
+    "VialNumber": "/SampleParams/AcqParam/VialNumber",
+    "OriginalFilePath": "/Injections/MeasData/BinaryData/DirItem/OriginalFilePath",
+}
 
 
 def testing_etree(filepath: str):
@@ -43,26 +35,19 @@ def testing_etree(filepath: str):
     print("")
     tree = etree.parse(filepath)
     root = tree.getroot()
-    ns = {"acaml": "urn:schemas-agilent-com:acaml15"}
-    name_path = "/SampleContextParams/IdentParam/Name"
-    xpath_exp = xpath_factory(name_path)
-    result = root.xpath(xpath_exp, namespaces=ns)
-    print("xpath length is:", len(result))
-    for item in result:
-        print(item.text)
-
-    # name = etree.parse(filepath).find(xpath_exp)
-    # print("")
-
-
-#    print(name)
-
-# assert name
+    ns = {"acaml": "urn:schemas-agilent-com:acaml14"}
+    for description, rel_path in xpath_dict.items():
+        xpath_exp = xpath_factory(rel_path)
+        # result = root.xpath(xpath_exp)
+        result = root.xpath(xpath_exp, namespaces=ns)
+        print("xpath length is:", len(result))
+        for item in result:
+            print(description, ":", item.text)
 
 
 def main():
     filepath = (
-        "/Users/jonathan/mycode/python_code/rainbow/tests/inputs/red.D/sequence.acam_"
+        "/Users/jonathan/0_jono_data/mres_data_library/cuprac/138.D/sequence.acam_"
     )
 
     jonathan_dev_tests_main(filepath=filepath)
