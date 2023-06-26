@@ -1,4 +1,13 @@
 # rainbow
+
+## NOTE: Jonathan Modifications
+
+2023-06-26 13:32:18
+
+I have modified chemstation.py to extract metadata specified in `xpath_dict` according to a given xpath. This has replaced `get_xml_vialnum`, including its functionality within it, however with a much more specific and safe data retreval process.
+
+## Continue..
+
 [![PyPI](https://img.shields.io/pypi/v/rainbow-api)](https://pypi.org/project/rainbow-api)
 [![Documentation Status](https://readthedocs.org/projects/rainbow-api/badge/?version=latest)](https://rainbow-api.readthedocs.io/en/latest/?badge=latest)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/rainbow-api)](https://pypi.org/project/rainbow-api)
