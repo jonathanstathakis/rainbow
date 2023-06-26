@@ -8,6 +8,7 @@ import struct
 import numpy as np
 from lxml import etree
 from rainbow.datafile import DataFile
+from rainbow.agilent import ext_seq_metadata
 
 
 """
@@ -723,7 +724,7 @@ def parse_metadata(path, datafiles):
     # sequence.acam_
     if "sequence.acam_" in dircontents:
         path = os.path.join(path, "sequence.acam_")
-        seq_metadata = extract_sequence_metadata(filepath=path, xpath_dict=xpath_dict)
+        seq_metadata = ext_seq_metadata.extract_sequence_metadata(filepath=path)
         if seq_metadata:
             metadata = {**metadata, **seq_metadata}
             return metadata
@@ -731,7 +732,7 @@ def parse_metadata(path, datafiles):
     # sample.acaml
     if "sample.acaml" in dircontents:
         path = os.path.join(path, "sequence.acaml")
-        seq_metadata = extract_sequence_metadata(filepath=path, xpath_dict=xpath_dict)
+        seq_metadata = ext_seq_metadata.extract_sequence_metadata(filepath=path)
         if seq_metadata:
             metadata = {**metadata, **seq_metadata}
             return metadata
@@ -786,81 +787,6 @@ def parse_metadata(path, datafiles):
                 break
 
     return metadata
-
-
-def xpath_factory(rel_path: str):
-    namespace_inj = "/acaml:"
-    path_root = "./"
-    common_path = "/Doc/Content"
-    path = common_path + rel_path
-    path = path.replace("/", namespace_inj)
-    xpath_exp = path_root + path
-
-    return xpath_exp
-
-
-xpath_dict = {
-    "seq_name": "/SampleContextParams/IdentParam/Name",
-    "vialnum": "/SampleParams/AcqParam/VialNumber",
-    "originalfilepath": "/Injections/MeasData/BinaryData/DirItem/OriginalFilePath",
-}
-
-
-def extract_sequence_metadata(filepath: str, xpath_dict: dict):
-    """
-    For a given .xml file "filepath" and dictionary of relative xpaths starting from
-    "/Doc/Content", return a dictonary of extracted metadata.
-    """
-    print("")
-    seq_metadata = {
-        key: None for key in xpath_dict.keys()
-    }  # setup the results container
-
-    tree = etree.parse(filepath)  # create the etree object
-    root = tree.getroot()
-
-    namespace = root.tag.split("}")[0].strip(
-        "{"
-    )  # get the namespace for the file from the root tag
-    ns = {"acaml": namespace}
-
-    for description, rel_path in xpath_dict.items():
-        try:
-            # construct xpaths using the defined namespace
-            xpath_exp = xpath_factory(rel_path)
-            # get the result of the xpath exp as a list
-            result = root.xpath(xpath_exp, namespaces=ns)
-            # extract the item text from results list
-            # each item is <class 'lxml.etree._Element'>
-            # ideally metadata is a flat dict, so if a result contains multiple items, assign them with incrementing keys
-            if len(result) < 2:
-                seq_metadata[description] = result[0].text
-            else:
-                for idx, item in enumerate(result):
-                    # remove original unindexed key
-                    seq_metadata.pop(description)
-                    description_idx = description + "_" + idx
-                    seq_metadata[description_idx] = item.text
-        except Exception as e:
-            print(e)
-
-    return seq_metadata
-
-
-def get_xml_vialnum(path):
-    """
-    Returns the VialNumber from an XML document, if it exists.
-
-    Args:
-        path (str): Path to the XML document.
-
-    """
-    tree = etree.parse(path)
-    root = tree.getroot()
-    for vialnum in root.xpath("//*[local-name()='VialNumber']"):
-        if vialnum.text:
-            return vialnum.text
-    return None
 
 
 def get_nextstr(str_list, target_str):

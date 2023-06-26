@@ -5,27 +5,24 @@ from mydevtools import project_settings, function_timer as ft
 from mydevtools.testing import mytestmethods
 from lxml import etree
 import rainbow as rb
-from rainbow.agilent.chemstation import extract_sequence_metadata
+from rainbow.agilent import ext_seq_metadata
 
 
 def jonathan_dev_tests_main(filepath: str):
-    xpath_dict = {
-        "Name": "/SampleContextParams/IdentParam/Name",
-        "VialNumber": "/SampleParams/AcqParam/VialNumber",
-        "OriginalFilePath": "/Injections/MeasData/BinaryData/DirItem/OriginalFilePath",
-    }
     tests = [
-        (test_extract_sequence_metadata, filepath, xpath_dict),
+        (test_extract_sequence_metadata, filepath),
         (test_chemstation,),
     ]
     mytestmethods.test_report(tests)
     return None
 
 
-def test_extract_sequence_metadata(filepath, xpath_dict):
-    seq_metadata_dict = extract_sequence_metadata(filepath, xpath_dict)
+def test_extract_sequence_metadata(filepath):
+    seq_metadata_dict = ext_seq_metadata.extract_sequence_metadata(filepath)
     assert seq_metadata_dict, "seq_metadata_dict empty"
 
+    xpath_dict = ext_seq_metadata.get_xpath_dict()
+    
     lowered_keys_list = [key for key in xpath_dict.keys()]
 
     for key in lowered_keys_list:
