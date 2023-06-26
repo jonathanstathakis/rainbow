@@ -26,7 +26,7 @@ def xpath_factory(rel_path: str):
 xpath_dict = {
     "Name": "/SampleContextParams/IdentParam/Name",
     "VialNumber": "/SampleParams/AcqParam/VialNumber",
-    "OriginalFilePath": "Injections/MeasData/BinaryData/DirItem/OriginalFilePath",
+    "OriginalFilePath": "/Injections/MeasData/BinaryData/DirItem/OriginalFilePath",
 }
 
 
@@ -36,13 +36,16 @@ def extract_sequence_metadata(filepath: str, xpath_dict: dict):
     "/Doc/Content", return a dictonary of extracted metadata.
     """
     print("")
-    seq_metadata = {key: None for key in xpath_dict.keys()} # setup the results container
+    seq_metadata = {
+        key: None for key in xpath_dict.keys()
+    }  # setup the results container
 
-    tree = etree.parse(filepath) # create the etree object
+    tree = etree.parse(filepath)  # create the etree object
     root = tree.getroot()
-    
-    ns = {"acaml": "urn:schemas-agilent-com:acaml14"} # define the namespace, specified as the 
-    
+
+    namespace = root.tag.split("}")[0].strip("{")
+    ns = {"acaml": namespace}
+
     for description, rel_path in xpath_dict.items():
         try:
             xpath_exp = xpath_factory(rel_path)
@@ -59,6 +62,8 @@ def test_extract_sequence_metadata(filepath, xpath_dict):
     seq_metadata_dict = extract_sequence_metadata(filepath, xpath_dict)
     assert seq_metadata_dict
     assert seq_metadata_dict.keys() == xpath_dict.keys()
+
+    print(seq_metadata_dict)
 
     # for description, metadata in seq_metadata_dict.items():
     #     assert metadata, f"{description}"
