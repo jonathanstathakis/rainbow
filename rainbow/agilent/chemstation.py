@@ -3,7 +3,7 @@ Methods for parsing Agilent Chemstation files.
  
 """
 
-import os 
+import os
 import struct
 import numpy as np
 from lxml import etree
@@ -14,6 +14,7 @@ from rainbow.datafile import DataFile
 MAIN PARSING METHODS
 
 """
+
 
 def parse_allfiles(path, prec=0):
     """
@@ -35,26 +36,27 @@ def parse_allfiles(path, prec=0):
             datafiles.append(datafile)
     return datafiles
 
+
 def parse_file(path, prec=0):
     """
-    Parses an Agilent Chemstation data file. 
-    
-    Supported extensions are .ch, .uv, and .ms. 
+    Parses an Agilent Chemstation data file.
+
+    Supported extensions are .ch, .uv, and .ms.
 
     Args:
         path (str): Path to the data file.
         prec (int, optional): Number of decimals to round mz values.
-    
+
     Returns:
         DataFile representing the file, if it can be parsed. Otherwise, None.
 
     """
     ext = os.path.splitext(path)[1].lower()
-    if ext == '.ch':
+    if ext == ".ch":
         return parse_ch(path)
-    elif ext == '.uv':
+    elif ext == ".uv":
         return parse_uv(path)
-    elif ext == '.ms':
+    elif ext == ".ms":
         return parse_ms(path, prec)
     return None
 
@@ -63,6 +65,7 @@ def parse_file(path, prec=0):
 .ch PARSING METHODS
 
 """
+
 
 def parse_ch(path):
     """
@@ -81,8 +84,8 @@ def parse_ch(path):
             Otherwise, None.
 
     """
-    f = open(path, 'rb')
-    head = struct.unpack('>I', f.read(4))[0]
+    f = open(path, "rb")
+    head = struct.unpack(">I", f.read(4))[0]
     f.close()
     # Determines the .ch file format using the file header.
     if head == 0x03313739:
@@ -91,76 +94,73 @@ def parse_ch(path):
         return parse_ch_other(path)
     return None
 
+
 def parse_ch_fid(path):
     """
-    Parses an Agilent .ch file with FID channel data. 
-    
-    This method should not be called directly. Use :obj:`parse_ch` instead. 
+    Parses an Agilent .ch file with FID channel data.
+
+    This method should not be called directly. Use :obj:`parse_ch` instead.
 
     Learn more about this file format :ref:`here <ch_fid>`.
 
     Args:
-        path (str): Path to the .ch file with FID data. 
+        path (str): Path to the .ch file with FID data.
 
     Returns:
         DataFile with FID data, if the file can be parsed. Otherwise, None.
 
     """
-    data_offsets = {
-        'num_times': 0x116,
-        'scaling_factor': 0x127C,
-        'data_start': 0x1800
-    }
+    data_offsets = {"num_times": 0x116, "scaling_factor": 0x127C, "data_start": 0x1800}
 
-    f = open(path, 'rb')
+    f = open(path, "rb")
     raw_bytes = f.read()
 
     # Extract the number of retention times.
-    f.seek(data_offsets['num_times'])
+    f.seek(data_offsets["num_times"])
     num_times = struct.unpack(">I", f.read(4))[0]
     if num_times == 0:
         return None
-    
-    # Compute retention times using the first and last times. 
+
+    # Compute retention times using the first and last times.
     start_time = struct.unpack(">f", f.read(4))[0]
     end_time = struct.unpack(">f", f.read(4))[0]
     delta_time = (end_time - start_time) / (num_times - 1)
     times = np.arange(start_time, end_time + 1e-3, delta_time)
 
     # Extract the raw data values.
-    data = np.ndarray(
-        num_times, '<d', raw_bytes, data_offsets['data_start'], 8)
+    data = np.ndarray(num_times, "<d", raw_bytes, data_offsets["data_start"], 8)
     data = data.copy().reshape(-1, 1)
 
     # Convert times into minutes.
     times /= 60000
-    
+
     # Scale the absorbances.
-    f.seek(data_offsets['scaling_factor'])
-    scaling_factor = struct.unpack('>d', f.read(8))[0]
+    f.seek(data_offsets["scaling_factor"])
+    scaling_factor = struct.unpack(">d", f.read(8))[0]
     data *= scaling_factor
-    
-    # No ylabel for FID data. 
-    ylabels = np.array([''])
+
+    # No ylabel for FID data.
+    ylabels = np.array([""])
 
     # Extract metadata from file header.
     metadata_offsets = {
-        'notebook': 0x35A, 
-        'date': 0x957, 
-        'method': 0xA0E, 
-        'instrument': 0xC11, 
-        'unit':  0x104C, 
-        'signal': 0x1075 
+        "notebook": 0x35A,
+        "date": 0x957,
+        "method": 0xA0E,
+        "instrument": 0xC11,
+        "unit": 0x104C,
+        "signal": 0x1075,
     }
     metadata = read_header(f, metadata_offsets)
     f.close()
 
-    return DataFile(path, 'FID', times, ylabels, data, metadata)
+    return DataFile(path, "FID", times, ylabels, data, metadata)
+
 
 def parse_ch_other(path):
     """
     Parses an Agilent .ch file with CAD, ELSD, or UV channel data.
-    
+
     This method should not be called directly. Use :obj:`parse_ch` instead.
 
     IMPORTANT: ELSD data may be mistakenly labeled as CAD on rare occasions. Users may need to make this distinction on their own when decoding Agilent CAD or ELSD data.
@@ -168,56 +168,52 @@ def parse_ch_other(path):
     Learn more about this file format :ref:`here <ch_other>`.
 
     Args:
-        path (str): Path to the .ch file with UV, CAD, or ELSD data. 
+        path (str): Path to the .ch file with UV, CAD, or ELSD data.
 
     Returns:
         DataFile with CAD, ELSD, or UV data, if parsable. Otherwise, None.
 
     """
-    data_offsets = {
-        'time_range': 0x11A,
-        'scaling_factor': 0x127C,
-        'data_start': 0x1800
-    }
+    data_offsets = {"time_range": 0x11A, "scaling_factor": 0x127C, "data_start": 0x1800}
 
-    f = open(path, 'rb')
-    byte_unpack = struct.Struct('>B').unpack
-    short_unpack = struct.Struct('>h').unpack
-    int_unpack = struct.Struct('>i').unpack
+    f = open(path, "rb")
+    byte_unpack = struct.Struct(">B").unpack
+    short_unpack = struct.Struct(">h").unpack
+    int_unpack = struct.Struct(">i").unpack
 
     # Extract the raw data values.
-    # Count the total number of retention times. 
-    f.seek(data_offsets['data_start'])
+    # Count the total number of retention times.
+    f.seek(data_offsets["data_start"])
     absorbances = []
     absorb_accum = 0
     while True:
-        # If the segment header is invalid, stop reading.  
-        head = byte_unpack(f.read(1))[0] 
+        # If the segment header is invalid, stop reading.
+        head = byte_unpack(f.read(1))[0]
         if head != 0x10:
             break
-        num_times_seg = byte_unpack(f.read(1))[0] 
+        num_times_seg = byte_unpack(f.read(1))[0]
 
         # If the next short is equal to -0x8000
-        #     then the next absorbance value is the next integer. 
+        #     then the next absorbance value is the next integer.
         # Otherwise, the short is a delta from the last absorbance value.
         for _ in range(num_times_seg):
             check_int = short_unpack(f.read(2))[0]
             if check_int == -0x8000:
                 absorb_accum = int_unpack(f.read(4))[0]
-            else: 
+            else:
                 absorb_accum += check_int
             absorbances.append(absorb_accum)
 
     # Process the extracted values.
-    # If no values are extracted, this file is invalid. 
+    # If no values are extracted, this file is invalid.
     data = np.array(absorbances)
     num_times = data.size
     if num_times == 0:
         return None
 
     # Calculate retention times using the first and last times.
-    f.seek(data_offsets['time_range'])
-    start_time, end_time = struct.unpack('>II', f.read(8))
+    f.seek(data_offsets["time_range"])
+    start_time, end_time = struct.unpack(">II", f.read(8))
     delta_time = (end_time - start_time) / (num_times - 1)
     times = np.arange(start_time, end_time + 1e-3, delta_time)
 
@@ -225,31 +221,31 @@ def parse_ch_other(path):
     times /= 60000
 
     # Process the absorbances.
-    f.seek(data_offsets['scaling_factor'])
-    scaling_factor = struct.unpack('>d', f.read(8))[0]
+    f.seek(data_offsets["scaling_factor"])
+    scaling_factor = struct.unpack(">d", f.read(8))[0]
     data = data.reshape(-1, 1) * scaling_factor
 
     # Read file metadata.
     metadata_offsets = {
-        'notebook': 0x35A, 
-        'date': 0x957, 
-        'method': 0xA0E, 
-        'instrument': 0xC11, 
-        'unit':  0x104C, 
-        'signal': 0x1075 
+        "notebook": 0x35A,
+        "date": 0x957,
+        "method": 0xA0E,
+        "instrument": 0xC11,
+        "unit": 0x104C,
+        "signal": 0x1075,
     }
     metadata = read_header(f, metadata_offsets)
     f.close()
 
-    # Determine the detector and ylabels using metadata. 
+    # Determine the detector and ylabels using metadata.
     detector = None
-    ylabel = ''
-    signal = metadata['signal']
-    if '=' in signal:
-        ylabel = signal.split('=')[1].split(',')[0]
-        detector = 'UV'
-    elif 'ADC' in signal:
-        detector = 'ELSD' if 'CHANNEL' in signal else 'CAD'
+    ylabel = ""
+    signal = metadata["signal"]
+    if "=" in signal:
+        ylabel = signal.split("=")[1].split(",")[0]
+        detector = "UV"
+    elif "ADC" in signal:
+        detector = "ELSD" if "CHANNEL" in signal else "CAD"
     ylabels = np.array([ylabel])
 
     return DataFile(path, detector, times, ylabels, data, metadata)
@@ -260,34 +256,31 @@ def parse_ch_other(path):
 
 """
 
+
 def parse_uv(path):
     """
     Parses an Agilent .uv file.
 
-    These files contain UV spectra. 
+    These files contain UV spectra.
 
     Learn more about this file format :ref:`here <uv>`.
 
     Args:
-        path (str): Path to the Agilent .uv file. 
-    
+        path (str): Path to the Agilent .uv file.
+
     Returns:
         DataFile with UV data, if the file can be parsed. Otherwise, None.
 
     """
-    data_offsets = {
-        'num_times': 0x116,
-        'scaling_factor': 0xC0D,
-        'data_start': 0x1000
-    }
+    data_offsets = {"num_times": 0x116, "scaling_factor": 0xC0D, "data_start": 0x1000}
 
-    f = open(path, 'rb')
-    uint_unpack = struct.Struct('<I').unpack 
-    int_unpack = struct.Struct('<i').unpack 
-    short_unpack = struct.Struct('<h').unpack
+    f = open(path, "rb")
+    uint_unpack = struct.Struct("<I").unpack
+    int_unpack = struct.Struct("<i").unpack
+    short_unpack = struct.Struct("<h").unpack
 
-    # Validate file header. 
-    head = struct.unpack('>I', f.read(4))[0]
+    # Validate file header.
+    head = struct.unpack(">I", f.read(4))[0]
     if head != 0x03313331:
         f.close()
         return None
@@ -295,16 +288,17 @@ def parse_uv(path):
     # Extract the number of retention times.
     f.seek(data_offsets["num_times"])
     num_times = struct.unpack(">I", f.read(4))[0]
-    # If there are none, the file may be a partial. 
+    # If there are none, the file may be a partial.
     if num_times == 0:
         f.close()
         return parse_uv_partial(path)
 
-    # Compute the wavelengths by taking the range from 
+    # Compute the wavelengths by taking the range from
     #     the header of the first data segment
     f.seek(data_offsets["data_start"] + 0x8)
-    start_wlen, end_wlen, delta_wlen = \
-        tuple(num // 20 for num in struct.unpack("<HHH", f.read(6)))
+    start_wlen, end_wlen, delta_wlen = tuple(
+        num // 20 for num in struct.unpack("<HHH", f.read(6))
+    )
     wavelengths = np.arange(start_wlen, end_wlen + 1, delta_wlen)
     num_wavelengths = wavelengths.size
 
@@ -317,23 +311,23 @@ def parse_uv(path):
         times[i] = uint_unpack(f.read(4))[0]
         f.read(14)
         # If the next short is equal to -0x8000
-        #     then the next absorbance value is the next integer. 
+        #     then the next absorbance value is the next integer.
         # Otherwise, the short is a delta from the last absorbance value.
-        absorb_accum = 0 
+        absorb_accum = 0
         for j in range(num_wavelengths):
             check_int = short_unpack(f.read(2))[0]
             if check_int == -0x8000:
                 absorb_accum = int_unpack(f.read(4))[0]
-            else: 
+            else:
                 absorb_accum += check_int
             data[i, j] = absorb_accum
 
-    # Covert times to minutes. 
+    # Covert times to minutes.
     times = times / 60000
 
     # Scale the absorbances.
-    f.seek(data_offsets['scaling_factor'])
-    scaling_factor = struct.unpack('>d', f.read(8))[0]
+    f.seek(data_offsets["scaling_factor"])
+    scaling_factor = struct.unpack(">d", f.read(8))[0]
     data = data * scaling_factor
 
     # Read file metadata.
@@ -343,50 +337,48 @@ def parse_uv(path):
         "method": 0xA0E,
         "unit": 0xC15,
         "signal": 0xC40,
-        "vialpos": 0xFD7
+        "vialpos": 0xFD7,
     }
     metadata = read_header(f, metadata_offsets)
     f.close()
 
-    return DataFile(path, 'UV', times, wavelengths, data, metadata)
+    return DataFile(path, "UV", times, wavelengths, data, metadata)
+
 
 def parse_uv_partial(path):
     """
-    Parses a partial Agilent .uv file. 
+    Parses a partial Agilent .uv file.
 
     Learn more about this file format :ref:`here <uv>`.
 
     Args:
-        path (str): Path to the partial .uv file. 
-    
+        path (str): Path to the partial .uv file.
+
     Returns:
         DataFile with UV data, if the file can be parsed. Otherwise, None.
 
     """
-    data_offsets = {
-        'num_times': 0x116,
-        'scaling_factor': 0xC0D,
-        'data_start': 0x1000
-    }
+    data_offsets = {"num_times": 0x116, "scaling_factor": 0xC0D, "data_start": 0x1000}
 
-    f = open(path, 'rb')
-    uint_unpack = struct.Struct('<I').unpack 
-    int_unpack = struct.Struct('<i').unpack 
-    short_unpack = struct.Struct('<h').unpack
-    
-    # Compute the wavelengths by taking the range from 
+    f = open(path, "rb")
+    uint_unpack = struct.Struct("<I").unpack
+    int_unpack = struct.Struct("<i").unpack
+    short_unpack = struct.Struct("<h").unpack
+
+    # Compute the wavelengths by taking the range from
     #     the header of the first data segment.
-    # If this process fails, then the file is not a partial. 
+    # If this process fails, then the file is not a partial.
     f.seek(data_offsets["data_start"] + 0x8)
     try:
-        start_wlen, end_wlen, delta_wlen = \
-            tuple(num // 20 for num in struct.unpack("<HHH", f.read(6)))
+        start_wlen, end_wlen, delta_wlen = tuple(
+            num // 20 for num in struct.unpack("<HHH", f.read(6))
+        )
         wavelengths = np.arange(start_wlen, end_wlen + 1, delta_wlen)
     except Exception:
         return None
 
     # Extract the retention times and absorbances from each data segment.
-    f.seek(data_offsets['data_start'])
+    f.seek(data_offsets["data_start"])
     times = []
     absorbances = []
     while True:
@@ -396,14 +388,14 @@ def parse_uv_partial(path):
             times.append(time)
             f.read(14)
             # If the next short is equal to -0x8000
-            #     then the next absorbance value is the next integer. 
+            #     then the next absorbance value is the next integer.
             # Otherwise, the short is a delta from the last absorbance value.
             absorb_accum = 0
             for _ in range(wavelengths.size):
                 check_int = short_unpack(f.read(2))[0]
                 if check_int == -0x8000:
                     absorb_accum = int_unpack(f.read(4))[0]
-                else: 
+                else:
                     absorb_accum += check_int
                 absorbances.append(absorb_accum)
         except Exception:
@@ -413,9 +405,9 @@ def parse_uv_partial(path):
     times = np.array(times) / 60000
     data = np.array(absorbances).reshape((times.size, wavelengths.size))
 
-    # Scale the absorbances. 
-    f.seek(data_offsets['scaling_factor'])
-    scaling_factor = struct.unpack('>d', f.read(8))[0]
+    # Scale the absorbances.
+    f.seek(data_offsets["scaling_factor"])
+    scaling_factor = struct.unpack(">d", f.read(8))[0]
     data = data * scaling_factor
 
     # Read file metadata.
@@ -425,12 +417,12 @@ def parse_uv_partial(path):
         "method": 0xA0E,
         "unit": 0xC15,
         "signal": 0xC40,
-        "vialpos": 0xFD7
+        "vialpos": 0xFD7,
     }
     metadata = read_header(f, metadata_offsets)
     f.close()
 
-    return DataFile(path, 'UV', times, wavelengths, data, metadata)
+    return DataFile(path, "UV", times, wavelengths, data, metadata)
 
 
 """
@@ -438,32 +430,33 @@ def parse_uv_partial(path):
 
 """
 
-def parse_ms(path, prec=0):   
+
+def parse_ms(path, prec=0):
     """
     Parses an Agilent .ms file.
 
-    These files contain MS spectra and SIM. 
+    These files contain MS spectra and SIM.
 
     Learn more about this file format :ref:`here <ms>`.
 
     Args:
         path (str): Path to Agilent .ms file.
-        prec (int, optional): Number of decimals to round mz values. 
-    
+        prec (int, optional): Number of decimals to round mz values.
+
     Returns:
         DataFile with MS data, if the file can be parsed. Otherwise, None.
 
     """
     data_offsets = {
-        'type': 0x4,
-        'data_start': 0x10A,
-        'lc_num_times': 0x116,
-        'gc_num_times': 0x142
+        "type": 0x4,
+        "data_start": 0x10A,
+        "lc_num_times": 0x116,
+        "gc_num_times": 0x142,
     }
 
-    f = open(path, 'rb')
-    short_unpack = struct.Struct('>H').unpack
-    int_unpack = struct.Struct('>I').unpack
+    f = open(path, "rb")
+    short_unpack = struct.Struct(">H").unpack
+    int_unpack = struct.Struct(">I").unpack
 
     # Validate file header.
     # If invalid, the file may be a partial.
@@ -474,19 +467,19 @@ def parse_ms(path, prec=0):
 
     # Determine the type of .ms file based on header.
     # Read the number of retention times from different offsets by type.
-    type_ms = read_string(f, data_offsets['type'], 1)
+    type_ms = read_string(f, data_offsets["type"], 1)
     if type_ms == "MSD Spectral File":
-        f.seek(data_offsets['lc_num_times'])
+        f.seek(data_offsets["lc_num_times"])
         num_times = int_unpack(f.read(4))[0]
-    else: 
-        f.seek(data_offsets['gc_num_times'])
-        num_times = struct.unpack('<I', f.read(4))[0]
-    
+    else:
+        f.seek(data_offsets["gc_num_times"])
+        num_times = struct.unpack("<I", f.read(4))[0]
+
     # Go to the data start offset.
-    f.seek(data_offsets['data_start'])
+    f.seek(data_offsets["data_start"])
     f.seek(short_unpack(f.read(2))[0] * 2 - 2)
 
-    # Extract retention times and data pair counts for each time. 
+    # Extract retention times and data pair counts for each time.
     # Store the bytes holding mz-intensity pairs.
     times = np.empty(num_times, dtype=np.uint32)
     pair_counts = np.zeros(num_times, dtype=np.uint16)
@@ -500,53 +493,50 @@ def parse_ms(path, prec=0):
         pair_bytes = f.read(pair_counts[i] * 4)
         pair_bytearr.extend(pair_bytes)
         f.read(10)
-    
+
     # Minor processing on the extracted data.
     raw_bytes = bytes(pair_bytearr)
     times = times / 60000
     total_paircount = np.sum(pair_counts)
 
-    # Calculate the mz values. 
-    mzs = np.ndarray(total_paircount, '>H', raw_bytes, 0, 4)
+    # Calculate the mz values.
+    mzs = np.ndarray(total_paircount, ">H", raw_bytes, 0, 4)
     mzs = np.round(mzs / 20, prec)
-    
-    # Calculate the intensity values. 
-    int_encs = np.ndarray(total_paircount, '>H', raw_bytes, 2, 4)
+
+    # Calculate the intensity values.
+    int_encs = np.ndarray(total_paircount, ">H", raw_bytes, 2, 4)
     int_heads = int_encs >> 14
-    int_tails = int_encs & 0x3fff
-    int_values = np.multiply(8 ** int_heads, int_tails, dtype=np.uint32)
+    int_tails = int_encs & 0x3FFF
+    int_values = np.multiply(8**int_heads, int_tails, dtype=np.uint32)
     del int_encs, int_heads, int_tails, raw_bytes
 
-    # Make the array of `ylabels` with mz values. 
+    # Make the array of `ylabels` with mz values.
     ylabels = np.unique(mzs)
     ylabels.sort()
 
-    # Make the `data` array with intensities. 
+    # Make the `data` array with intensities.
     mz_indices = np.searchsorted(ylabels, mzs)
     data = np.zeros((num_times, ylabels.size), dtype=np.uint32)
     cur_index = 0
     for i in range(num_times):
         stop_index = cur_index + pair_counts[i]
         np.add.at(
-            data[i], 
-            mz_indices[cur_index:stop_index], 
-            int_values[cur_index:stop_index])
+            data[i], mz_indices[cur_index:stop_index], int_values[cur_index:stop_index]
+        )
         cur_index = stop_index
     del mz_indices, mzs, int_values, pair_counts
 
     # Read file metadata.
-    metadata_offsets = {
-        'date': 0xB2,
-        'method': 0xE4
-    }
+    metadata_offsets = {"date": 0xB2, "method": 0xE4}
     metadata = read_header(f, metadata_offsets, 1)
     f.close()
 
-    return DataFile(path, 'MS', times, ylabels, data, metadata)
+    return DataFile(path, "MS", times, ylabels, data, metadata)
+
 
 def parse_ms_partial(path, prec=0):
     """
-    Parses a partial Agilent .ms file. 
+    Parses a partial Agilent .ms file.
 
     IMPORTANT: This method only supports LC .ms partials.
 
@@ -560,9 +550,9 @@ def parse_ms_partial(path, prec=0):
         DataFile with MS data, if the file can be parsed. Otherwise, None.
 
     """
-    f = open(path, 'rb')
-    short_unpack = struct.Struct('>H').unpack
-    int_unpack = struct.Struct('>I').unpack
+    f = open(path, "rb")
+    short_unpack = struct.Struct(">H").unpack
+    int_unpack = struct.Struct(">I").unpack
 
     # Partial .ms files do not store the start offset.
     # Shallow validation of filetype by checking that offset is null.
@@ -571,13 +561,13 @@ def parse_ms_partial(path, prec=0):
         f.close()
         return None
 
-    # The start offset for data in .ms files is technically variable, 
-    #     but it has been constant for every .ms file we have tested. 
+    # The start offset for data in .ms files is technically variable,
+    #     but it has been constant for every .ms file we have tested.
     # Since the start offset is not stored in partials, this code uses that
-    #     "constant" common starting offset. It may not work in all cases. 
-    f.seek(0x2F2) 
+    #     "constant" common starting offset. It may not work in all cases.
+    f.seek(0x2F2)
 
-    # Extract retention times and data pair counts for each time. 
+    # Extract retention times and data pair counts for each time.
     # Store the bytes holding mz-intensity pairs.
     times = []
     pair_counts = []
@@ -603,19 +593,19 @@ def parse_ms_partial(path, prec=0):
     pair_counts = np.array(pair_counts)
     num_times = times.size
     total_paircount = np.sum(pair_counts)
-    
-    # Calculate the mz values. 
-    mzs = np.ndarray(total_paircount, '>H', raw_bytes, 0, 4)
+
+    # Calculate the mz values.
+    mzs = np.ndarray(total_paircount, ">H", raw_bytes, 0, 4)
     mzs = np.round(mzs / 20, prec)
-    
+
     # Calculate the intensity values.
-    int_encs = np.ndarray(total_paircount, '>H', raw_bytes, 2, 4)
+    int_encs = np.ndarray(total_paircount, ">H", raw_bytes, 2, 4)
     int_heads = int_encs >> 14
-    int_tails = int_encs & 0x3fff
-    int_values = np.multiply(8 ** int_heads, int_tails, dtype=np.uint32)
+    int_tails = int_encs & 0x3FFF
+    int_values = np.multiply(8**int_heads, int_tails, dtype=np.uint32)
     del int_encs, int_heads, int_tails, raw_bytes
 
-    # Make the array of `ylabels` with mz values. 
+    # Make the array of `ylabels` with mz values.
     ylabels = np.unique(mzs)
     ylabels.sort()
 
@@ -626,21 +616,17 @@ def parse_ms_partial(path, prec=0):
     for i in range(num_times):
         stop_index = cur_index + pair_counts[i]
         np.add.at(
-            data[i], 
-            mz_indices[cur_index:stop_index], 
-            int_values[cur_index:stop_index])
+            data[i], mz_indices[cur_index:stop_index], int_values[cur_index:stop_index]
+        )
         cur_index = stop_index
     del mz_indices, mzs, int_values, pair_counts
 
-    # Read file metadata. 
-    metadata_offsets = {
-        'date': 0xB2,
-        'method': 0xE4
-    }
+    # Read file metadata.
+    metadata_offsets = {"date": 0xB2, "method": 0xE4}
     metadata = read_header(f, metadata_offsets, 1)
-    f.close() 
+    f.close()
 
-    return DataFile(path, 'MS', times, ylabels, data, metadata)
+    return DataFile(path, "MS", times, ylabels, data, metadata)
 
 
 """ 
@@ -648,17 +634,18 @@ FILE METADATA PARSING METHODS
 
 """
 
+
 def read_header(f, offsets, gap=2):
     """
-    Extracts metadata from the header of an Agilent data file. 
+    Extracts metadata from the header of an Agilent data file.
 
     Args:
         f (_io.BufferedReader): File opened in 'rb' mode.
-        offsets (dict): Dictionary mapping properties to file offsets. 
+        offsets (dict): Dictionary mapping properties to file offsets.
         gap (int): Distance between two adjacent characters.
 
     Returns:
-        Dictionary containing metadata as string key-value pairs. 
+        Dictionary containing metadata as string key-value pairs.
 
     """
     metadata = {}
@@ -668,19 +655,20 @@ def read_header(f, offsets, gap=2):
             metadata[key] = string
     return metadata
 
+
 def read_string(f, offset, gap=2):
     """
     Extracts a string from the specified offset.
 
-    This method is primarily useful for retrieving metadata. 
+    This method is primarily useful for retrieving metadata.
 
     Args:
-        f (_io.BufferedReader): File opened in 'rb' mode. 
-        offset (int): Offset to begin reading from. 
+        f (_io.BufferedReader): File opened in 'rb' mode.
+        offset (int): Offset to begin reading from.
         gap (int): Distance between two adjacent characters.
-    
+
     Returns:
-        String at the specified offset in the file header. 
+        String at the specified offset in the file header.
 
     """
     f.seek(offset)
@@ -695,6 +683,7 @@ def read_string(f, offset, gap=2):
 DIRECTORY METADATA PARSING METHODS 
 
 """
+
 
 def parse_metadata(path, datafiles):
     """
@@ -715,34 +704,34 @@ def parse_metadata(path, datafiles):
 
     """
     metadata = {}
-    metadata['vendor'] = "Agilent"
+    metadata["vendor"] = "Agilent"
 
     # Scan each DataFile for the date and vial position.
-    # These may be stored in multiple files but the values are constant. 
-    # In MS files, the time may be saved in a different format. 
+    # These may be stored in multiple files but the values are constant.
+    # In MS files, the time may be saved in a different format.
     for datafile in datafiles:
-        if 'date' not in metadata and 'date' in datafile.metadata:
-            metadata['date'] = datafile.metadata['date']
-        if 'vialpos' not in metadata and 'vialpos' in datafile.metadata:
-            metadata['vialpos'] = datafile.metadata['vialpos']
-    if 'date' in metadata and 'vialpos' in metadata:
+        if "date" not in metadata and "date" in datafile.metadata:
+            metadata["date"] = datafile.metadata["date"]
+        if "vialpos" not in metadata and "vialpos" in datafile.metadata:
+            metadata["vialpos"] = datafile.metadata["vialpos"]
+    if "date" in metadata and "vialpos" in metadata:
         return metadata
 
-    # Scan certain files for the vial position. 
+    # Scan certain files for the vial position.
     dircontents = set(os.listdir(path))
 
     # sequence.acam_
     if "sequence.acam_" in dircontents:
-        vialnum = get_xml_vialnum(os.path.join(path, "sequence.acam_"))
-        if vialnum:
-            metadata['vialpos'] = vialnum
+        seq_metadata = extract_sequence_metadata(os.path.join(path, "sequence.acam_"))
+        if seq_metadata:
+            metadata.extend(seq_metadata)
             return metadata
 
     # sample.acaml
     if "sample.acaml" in dircontents:
-        vialnum = get_xml_vialnum(os.path.join(path, "sample.acaml"))
-        if vialnum:
-            metadata['vialpos'] = vialnum
+        vialnum = extract_sequence_metadata(os.path.join(path, "sample.acaml"))
+        if seq_metadata:
+            metadata.extend(seq_metadata)
             return metadata
 
     # AcqData/sample_info.xml
@@ -754,10 +743,10 @@ def parse_metadata(path, datafiles):
             for samplefield in root.xpath('//Field[Name="Sample Position"]'):
                 vialnum = samplefield.find("Value")
                 if vialnum is not None and len(vialnum.text.split()) == 1:
-                    metadata['vialpos'] = vialnum.text
+                    metadata["vialpos"] = vialnum.text
                     return metadata
 
-    # runstart.txt 
+    # runstart.txt
     if "runstart.txt" in dircontents:
         f = open(os.path.join(path, "runstart.txt"))
         lines = f.read().splitlines()
@@ -765,16 +754,16 @@ def parse_metadata(path, datafiles):
         for line in lines:
             stripped = line.strip()
             if "Alsbottle" not in stripped:
-                continue 
+                continue
             vialnum = stripped.split()[-1]
             if int(vialnum):
-                metadata['vialpos'] = vialnum
+                metadata["vialpos"] = vialnum
                 return metadata
 
     # RUN.LOG
     if "RUN.LOG" in dircontents:
-        f = open(os.path.join(path, "RUN.LOG"), 'rb')
-        plaintext = f.read().decode('ascii', 'ignore').replace("\x00", "")
+        f = open(os.path.join(path, "RUN.LOG"), "rb")
+        plaintext = f.read().decode("ascii", "ignore").replace("\x00", "")
         f.close()
         for line in plaintext.splitlines():
             vialpos = None
@@ -788,20 +777,73 @@ def parse_metadata(path, datafiles):
                 vialpos = get_nextstr(split, "Vial")
                 if not vialpos:
                     vialpos = get_nextstr(split, "location")
-                if not vialpos: 
+                if not vialpos:
                     vialpos = get_nextstr(split, "sample")
             if vialpos:
-                metadata['vialpos'] = vialpos.replace("'", "")
+                metadata["vialpos"] = vialpos.replace("'", "")
                 break
-    
+
     return metadata
+
+
+def xpath_factory(rel_path: str):
+    namespace_inj = "/acaml:"
+    path_root = "./"
+    common_path = "/Doc/Content"
+    path = common_path + rel_path
+    path = path.replace("/", namespace_inj)
+    xpath_exp = path_root + path
+
+    return xpath_exp
+
+
+xpath_dict = {
+    "Name": "/SampleContextParams/IdentParam/Name",
+    "VialNumber": "/SampleParams/AcqParam/VialNumber",
+    "OriginalFilePath": "/Injections/MeasData/BinaryData/DirItem/OriginalFilePath",
+}
+
+
+def extract_sequence_metadata(filepath: str, xpath_dict: dict):
+    """
+    For a given .xml file "filepath" and dictionary of relative xpaths starting from
+    "/Doc/Content", return a dictonary of extracted metadata.
+    """
+    print("")
+    seq_metadata = {
+        key: None for key in xpath_dict.keys()
+    }  # setup the results container
+
+    tree = etree.parse(filepath)  # create the etree object
+    root = tree.getroot()
+
+    namespace = root.tag.split("}")[0].strip(
+        "{"
+    )  # get the namespace for the file from the root tag
+    ns = {"acaml": namespace}
+
+    for description, rel_path in xpath_dict.items():
+        try:
+            # construct xpaths using the defined namespace
+            xpath_exp = xpath_factory(rel_path)
+            # get the result of the xpath exp as a list
+            result = root.xpath(xpath_exp, namespaces=ns)
+            # extract the item text from results list
+            string_list = [item.text for item in result]
+            # assign the results string list to return dict
+            seq_metadata[description] = string_list
+        except Exception as e:
+            print(e)
+
+    return seq_metadata
+
 
 def get_xml_vialnum(path):
     """
     Returns the VialNumber from an XML document, if it exists.
 
     Args:
-        path (str): Path to the XML document. 
+        path (str): Path to the XML document.
 
     """
     tree = etree.parse(path)
@@ -811,13 +853,14 @@ def get_xml_vialnum(path):
             return vialnum.text
     return None
 
+
 def get_nextstr(str_list, target_str):
-    """ 
+    """
     Returns the string at the next index in :obj:`str_list`, if it exists.
 
     Args:
-        str_list (str): List of strings. 
-        target_str (str): Initial string to find. 
+        str_list (str): List of strings.
+        target_str (str): Initial string to find.
 
     """
     try:
