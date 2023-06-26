@@ -7,7 +7,7 @@ from lxml import etree
 
 
 def jonathan_dev_tests_main(filepath: str):
-    tests = [(testing_etree, filepath)]
+    tests = [(test_extract_sequence_metadata, filepath, xpath_dict)]
     mytestmethods.test_report(tests)
     return None
 
@@ -26,23 +26,42 @@ def xpath_factory(rel_path: str):
 xpath_dict = {
     "Name": "/SampleContextParams/IdentParam/Name",
     "VialNumber": "/SampleParams/AcqParam/VialNumber",
-    "OriginalFilePath": "/Injections/MeasData/BinaryData/DirItem/OriginalFilePath",
+    "OriginalFilePath": "Injections/MeasData/BinaryData/DirItem/OriginalFilePath",
 }
 
 
-def testing_etree(filepath: str):
-    # in the ElementTree API, Element class is the main container object created here:
+def extract_sequence_metadata(filepath: str, xpath_dict: dict):
+    """
+    For a given .xml file "filepath" and dictionary of relative xpaths starting from
+    "/Doc/Content", return a dictonary of extracted metadata.
+    """
     print("")
-    tree = etree.parse(filepath)
+    seq_metadata = {key: None for key in xpath_dict.keys()} # setup the results container
+
+    tree = etree.parse(filepath) # create the etree object
     root = tree.getroot()
-    ns = {"acaml": "urn:schemas-agilent-com:acaml14"}
+    
+    ns = {"acaml": "urn:schemas-agilent-com:acaml14"} # define the namespace, specified as the 
+    
     for description, rel_path in xpath_dict.items():
-        xpath_exp = xpath_factory(rel_path)
-        # result = root.xpath(xpath_exp)
-        result = root.xpath(xpath_exp, namespaces=ns)
-        print("xpath length is:", len(result))
-        for item in result:
-            print(description, ":", item.text)
+        try:
+            xpath_exp = xpath_factory(rel_path)
+            result = root.xpath(xpath_exp, namespaces=ns)
+            string_list = [item.text for item in result]
+            seq_metadata[description] = string_list
+        except Exception as e:
+            print(e)
+
+    return seq_metadata
+
+
+def test_extract_sequence_metadata(filepath, xpath_dict):
+    seq_metadata_dict = extract_sequence_metadata(filepath, xpath_dict)
+    assert seq_metadata_dict
+    assert seq_metadata_dict.keys() == xpath_dict.keys()
+
+    # for description, metadata in seq_metadata_dict.items():
+    #     assert metadata, f"{description}"
 
 
 def main():
