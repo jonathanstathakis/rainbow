@@ -6,12 +6,14 @@ from mydevtools.testing import mytestmethods
 from lxml import etree
 import rainbow as rb
 from rainbow.agilent import ext_seq_metadata
+import os
 
 
 def jonathan_dev_tests_main(filepath: str):
     tests = [
         (test_extract_sequence_metadata, filepath),
-        (test_chemstation,),
+        (test_chemstation_single_file,),
+        (test_chemstation_library,),
     ]
     mytestmethods.test_report(tests)
     return None
@@ -36,12 +38,24 @@ def test_extract_sequence_metadata(filepath):
         assert metadata, f"{description}"
 
 
-def test_chemstation():
-    filepath = "/Users/jonathan/0_jono_data/cuprac/116.D"
+def test_chemstation_single_file():
+    filepath = "/Users/jonathan/0_jono_data/raw_uv/2023-02-22_KOERNER-NELLUCIO-02-21.D"
     datadir = rb.read(filepath)
-    print(datadir.metadata)
     uv_file = datadir.get_file("DAD1.UV")
-    print(uv_file.metadata)
+    metadata = {**datadir.metadata, **uv_file.metadata}
+    print(metadata)
+   
+    
+def test_chemstation_library():
+    libpath = os.path.join(os.path.dirname(os.path.abspath(__file__)),"test_lib_descs")
+    for file in os.listdir(libpath):
+        print("")
+        filepath = os.path.join(libpath, file)
+        datadir = rb.read(filepath)
+        uv_file = datadir.get_file("DAD1.UV")
+        metadata = {**datadir.metadata, **uv_file.metadata}
+        print(metadata)
+        
 
 
 def main():

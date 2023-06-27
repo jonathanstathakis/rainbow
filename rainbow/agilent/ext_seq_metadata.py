@@ -66,9 +66,11 @@ def get_xpath_dict():
     """
     xpath_dict = {
             "seq_name": "/SampleContextParams/IdentParam/Name",
+            "seq_desc" : "/SampleContextParams/IdentParam/Description",
             "vialnum": "/SampleParams/AcqParam/VialNumber",
             "originalfilepath": "/Injections/MeasData/BinaryData/DirItem/OriginalFilePath",
-            "id": "/SampleContexts/Setup"
+            "id": "/SampleContexts/Setup",
+            "desc": "/SampleParams/IdentParam/Description"
         }
     return xpath_dict
 
