@@ -731,7 +731,7 @@ def parse_metadata(path, datafiles):
 
     # sample.acaml
     if "sample.acaml" in dircontents:
-        path = os.path.join(path, "sequence.acaml")
+        path = os.path.join(path, "sample.acaml")
         seq_metadata = ext_seq_metadata.extract_sequence_metadata(filepath=path)
         if seq_metadata:
             metadata = {**metadata, **seq_metadata}
