@@ -42,9 +42,6 @@ def test_chemstation():
     print(datadir.metadata)
     uv_file = datadir.get_file("DAD1.UV")
     print(uv_file.metadata)
-    # assert uv_file
-    # print(uv_file.metadata)
-    # assert "OriginalFilePath" in uv_file.metadata.keys()
 
 
 def main():

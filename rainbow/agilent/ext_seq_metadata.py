@@ -40,7 +40,9 @@ def extract_sequence_metadata(filepath: str) -> dict[str, str]:
             # extract the item text from results list
             # each item is <class 'lxml.etree._Element'>
             # ideally metadata is a flat dict, so if a result contains multiple items, assign them with incrementing keys
-            if len(result) < 2:
+            if description == 'id':
+                seq_metadata[description] = result[0].attrib['id']
+            elif len(result) < 2:
                 seq_metadata[description] = result[0].text
             else:
                 # unpack the list into indexed keys
@@ -66,6 +68,7 @@ def get_xpath_dict():
             "seq_name": "/SampleContextParams/IdentParam/Name",
             "vialnum": "/SampleParams/AcqParam/VialNumber",
             "originalfilepath": "/Injections/MeasData/BinaryData/DirItem/OriginalFilePath",
+            "id": "/SampleContexts/Setup"
         }
     return xpath_dict
 
