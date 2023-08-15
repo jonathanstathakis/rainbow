@@ -721,6 +721,14 @@ def parse_metadata(path, datafiles):
     # Scan certain files for the vial position.
     dircontents = set(os.listdir(path))
 
+    # added by Jonathan
+    #acq.macaml
+    if "acq.macaml" in dircontents:
+        acq_path = os.path.join(path, "acq.macaml")
+        acq_metadata = ext_seq_metadata.extract_acq_metadata(acq_path)
+        metadata = {**metadata, **acq_metadata}
+        del acq_path
+    
     # sequence.acam_
     if "sequence.acam_" in dircontents:
         path = os.path.join(path, "sequence.acam_")
