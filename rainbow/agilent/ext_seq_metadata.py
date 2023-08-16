@@ -6,6 +6,9 @@ Module containing core function extract_sequence_metadata and dependencies.
 
 """
 from lxml import etree
+import os
+import logging
+logger = logging.getLogger(__name__)
 
 
 def extract_sequence_metadata(filepath: str) -> dict[str, str]:
@@ -60,7 +63,7 @@ def extract_sequence_metadata(filepath: str) -> dict[str, str]:
                     description_idx = description + "_" + idx
                     seq_metadata[description_idx] = item.text
         except Exception as e:
-            print(e)
+            logger.error(e)
 
     return seq_metadata
 
@@ -72,34 +75,53 @@ def extract_acq_metadata(filepath: str):
     Elements are specified by a relative xpath starting from the branch at "/Doc/Content". Currently the method
     of extracting new elements is to identify the xpath without namepsace relative to "/Doc/Content", place
     that string in get_seq_acam_xpath_dict and the xpath_factory will construct the xpath with namespace
+    
+    2023-08-16 11:02:18 Jonathan - reason this is written as a wrapper is to obscure
+    the choice of target names from the user (see find_parameter_values). Later
+    changes can expose that to the user if desired, just remove the wrapper. Note:
+    tests arnt fully automated, will need to add at later date (see test_jonathan_dev.py)
     """
-    xpath_dict = dict(
-        inj_vol_ul="/MethodConfiguration/MethodDescription/Section/Section[1]/Section[2]/Parameter[2]/Value" # inj
-    )
-    acq_metadata = {key: None for key in xpath_dict.keys()}
+    assert os.path.isfile(filepath)
+    
+    def find_parameter_values(filepath, target_names: list)-> dict:
+        """
+        For a given filepath (acq.macaml) extract values of parameters with names
+        matching those listed in target_names. Returns dict of metadata with keys
+        matching target_names.
+        """
+        rdict = {}
+        # Parse the XML file
+        tree = etree.parse(filepath)
 
-    tree = etree.parse(filepath)
-    root = tree.getroot()
+        # Find all "Parameter" elements
+        ns = {"acaml": "urn:schemas-agilent-com:acaml14"}
+        sections = tree.findall(".//acaml:Section", namespaces=ns)
 
-    namespace = root.tag.split("}")[0].strip("{")
-    ns = {"acaml": namespace}
-    for desc, relpath in xpath_dict.items():
-        xpath_exp = xpath_factory(relpath)
-        result = root.xpath(xpath_exp, namespaces=ns)
-        assert result
-        if len(result) < 2:
-            acq_metadata[desc] = result[0].text
-        else:
-            # unpack the list into indexed keys
-            for idx, item in enumerate(result):
-                # remove original unindexed key
-                acq_metadata.pop(desc)
-                description_idx = desc + "_" + idx
-                acq_metadata[description_idx] = item.text
-        
-            
+        # Iterate through the sections
+        for section in sections:
+            section_name = section.find("acaml:Name", namespaces=ns)  # Adjust as needed
+            parameters = section.findall(".//acaml:Parameter", namespaces=ns)
+
+            # Iterate through the "Parameter" elements in this section
+            for parameter in parameters:
+                parameter_name = parameter.find("acaml:Name", namespaces=ns)
+                parameter_value = parameter.find("acaml:Value", namespaces=ns)
+
+                for target in target_names:
+                    if (
+                        section_name is not None
+                        and parameter_name is not None
+                        and parameter_value is not None
+                        and parameter_name.text == target
+                    ):
+
+                        rdict[target] = parameter_value.text
+        return rdict
+
+    acq_metadata = find_parameter_values(filepath, target_names=["Injection Volume",])
+
     return acq_metadata
-            
+
 
 
 def get_seq_acam_xpath_dict():
